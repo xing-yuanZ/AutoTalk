@@ -17,6 +17,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.autotalk.app.LocalAppContainer
@@ -71,9 +72,11 @@ fun AppNavigation() {
         TabItem(Routes.TAB_SETTINGS, "设置", Icons.Filled.Settings)
     )
 
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val current = navBackStackEntry?.destination?.route
+
     Scaffold(
         bottomBar = {
-            val current = navController.currentBackStackEntry?.destination?.route
             if (current in tabRoutes) {
                 NavigationBar {
                     tabs.forEach { tab ->

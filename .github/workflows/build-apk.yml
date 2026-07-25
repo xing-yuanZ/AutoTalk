@@ -27,10 +27,12 @@ jobs:
 
       - name: 安装 Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          packages: |
-            platforms;android-34
-            build-tools;34.0.0
+
+      - name: 接受 SDK 许可证
+        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses --sdk_root=$ANDROID_HOME
+
+      - name: 安装 SDK 组件
+        run: $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0" --sdk_root=$ANDROID_HOME
 
       - name: 安装 Gradle 8.9
         uses: gradle/actions/setup-gradle@v4

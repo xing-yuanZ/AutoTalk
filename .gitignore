@@ -1,0 +1,23 @@
+# Gradle
+.gradle/
+build/
+
+# Local config（包含本机 SDK 路径，不应提交）
+local.properties
+
+# Android Studio / IntelliJ
+*.iml
+.idea/
+.captures/
+
+# Keystore（签名密钥，绝对不能提交）
+*.keystore
+*.jks
+keystore.properties
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

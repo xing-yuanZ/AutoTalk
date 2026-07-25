@@ -2,6 +2,8 @@ package com.autotalk.app.data
 
 import com.autotalk.app.data.db.ChatMessageDao
 import com.autotalk.app.data.db.ChatMessageEntity
+import com.autotalk.app.data.db.ChatSessionDao
+import com.autotalk.app.data.db.ChatSessionEntity
 import com.autotalk.app.data.db.ConversationDao
 import com.autotalk.app.data.db.ConversationEntity
 import com.autotalk.app.data.db.TranscriptDao
@@ -22,7 +24,8 @@ import java.util.UUID
 class ConversationRepository(
     private val conversationDao: ConversationDao,
     private val transcriptDao: TranscriptDao,
-    private val chatMessageDao: ChatMessageDao
+    private val chatMessageDao: ChatMessageDao,
+    private val chatSessionDao: ChatSessionDao
 ) {
     fun observeConversations(): Flow<List<Conversation>> =
         conversationDao.observeAll().map { list -> list.map { it.toDomain() } }
@@ -64,12 +67,29 @@ class ConversationRepository(
         )
     }
 
-    fun observeChatMessages(): Flow<List<ChatMessageEntity>> = chatMessageDao.observeAll()
+    fun observeChatMessages(): Flow<List<ChatMessageEntity>> = chatMessageDao.observeForSession("")
+        // 保持 API 兼容但不再使用，建议用 observeSessionMessages(sessionId)
+
+    fun observeSessionMessages(sessionId: String): Flow<List<ChatMessageEntity>> =
+        chatMessageDao.observeForSession(sessionId)
 
     suspend fun addChatMessage(role: ChatRole, text: String) {
         chatMessageDao.insert(
             ChatMessageEntity(
                 id = UUID.randomUUID().toString(),
+                sessionId = "",
+                role = role.name,
+                text = text,
+                timestamp = System.currentTimeMillis()
+            )
+        )
+    }
+
+    suspend fun addSessionMessage(sessionId: String, role: ChatRole, text: String) {
+        chatMessageDao.insert(
+            ChatMessageEntity(
+                id = UUID.randomUUID().toString(),
+                sessionId = sessionId,
                 role = role.name,
                 text = text,
                 timestamp = System.currentTimeMillis()
@@ -81,6 +101,32 @@ class ConversationRepository(
         conversationDao.deleteAll()
         transcriptDao.deleteAll()
         chatMessageDao.deleteAll()
+        chatSessionDao.deleteAll()
+    }
+
+    // MARK: - 助手会话
+
+    fun observeSessions(): Flow<List<ChatSessionEntity>> = chatSessionDao.observeAll()
+
+    suspend fun createSession(title: String = "新对话"): String {
+        val id = UUID.randomUUID().toString()
+        chatSessionDao.upsert(
+            ChatSessionEntity(
+                id = id, title = title,
+                createdAt = System.currentTimeMillis(),
+                updatedAt = System.currentTimeMillis(),
+                lastMessagePreview = ""
+            )
+        )
+        return id
+    }
+
+    suspend fun updateSession(id: String, title: String, updatedAt: Long, lastMessagePreview: String) {
+        chatSessionDao.update(id, title, updatedAt, lastMessagePreview)
+    }
+
+    suspend fun deleteSession(id: String) {
+        chatSessionDao.deleteById(id)
     }
 
     // MARK: - 映射

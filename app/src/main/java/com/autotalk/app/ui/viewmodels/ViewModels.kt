@@ -4,8 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import androidx.lifecycle.viewmodel.CreationExtras
 import com.autotalk.app.AppContainer
+import com.autotalk.app.data.db.ChatMessageEntity
+import com.autotalk.app.data.db.ChatSessionEntity
 import com.autotalk.app.domain.AIChatMessage
 import com.autotalk.app.domain.ChatRole
 import com.autotalk.app.domain.ConversationLanguage
@@ -13,6 +14,7 @@ import com.autotalk.app.domain.Speaker
 import com.autotalk.app.domain.Suggestion
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -89,55 +91,95 @@ class LiveSessionViewModel(
     }
 }
 
-// MARK: - 风格教练
-class StyleCoachViewModel(private val container: AppContainer) : ViewModel() {
-
-    private val agent = container.makeStyleAgent()
-
-    val messages: StateFlow<List<com.autotalk.app.data.db.ChatMessageEntity>> =
-        container.repository.observeChatMessages()
+// MARK: - 助手会话列表
+class SessionListViewModel(private val container: AppContainer) : ViewModel() {
+    val sessions: StateFlow<List<ChatSessionEntity>> =
+        container.repository.observeSessions()
             .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    val isThinking: StateFlow<Boolean> = agent.isThinking
-    val isExtracting: StateFlow<Boolean> = agent.isExtracting
-    val error: StateFlow<String?> = agent.error
-    val profileSummary: StateFlow<String> = kotlinx.coroutines.flow.flow {
-        container.styleProfile.collect { p ->
-            emit(if (p.isEmpty) "尚未学习。多和我聊聊，再点\"更新画像\"。"
-                 else if (p.summary.isEmpty()) "正式度 ${(p.formality * 100).toInt()}% · 句长 ${p.averageSentenceLength.toInt()}"
-                 else p.summary)
+    fun createSession() {
+        viewModelScope.launch { container.repository.createSession() }
+    }
+
+    fun renameSession(id: String, title: String) {
+        viewModelScope.launch {
+            if (title.isNotBlank()) {
+                container.repository.updateSession(id, title, System.currentTimeMillis(), "")
+            }
         }
-    }.stateIn(viewModelScope, SharingStarted.Eagerly, "")
+    }
+
+    fun deleteSession(id: String) {
+        viewModelScope.launch { container.repository.deleteSession(id) }
+    }
+}
+
+// MARK: - 助手聊天
+class ChatViewModel(
+    private val container: AppContainer,
+    private val sessionId: String
+) : ViewModel() {
+
+    private val agent = container.makeAssistant()
+
+    val messages: StateFlow<List<ChatMessageEntity>> =
+        container.repository.observeSessionMessages(sessionId)
+            .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    val sessionTitle: StateFlow<String> =
+        container.repository.observeSessions()
+            .map { sessions -> sessions.find { it.id == sessionId }?.title ?: "助手" }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, "助手")
+
+    val isThinking: StateFlow<Boolean> = agent.isThinking
+    val error: StateFlow<String?> = agent.error
 
     fun send(text: String) {
         if (text.isBlank()) return
         viewModelScope.launch {
-            container.repository.addChatMessage(ChatRole.USER, text)
-            val history = messages.value.map {
-                AIChatMessage(if (it.role == ChatRole.USER.name) AIChatMessage.ROLE_USER else AIChatMessage.ROLE_ASSISTANT, it.text)
+            val currentMessages = messages.value
+            val history = currentMessages.map {
+                AIChatMessage(
+                    if (it.role == ChatRole.USER.name) AIChatMessage.ROLE_USER else AIChatMessage.ROLE_ASSISTANT,
+                    it.text
+                )
             }
-            val reply = agent.send(text, history, container.settingsState.value.appLanguage)
-            if (reply.isNotEmpty()) container.repository.addChatMessage(ChatRole.ASSISTANT, reply)
-        }
-    }
 
-    fun greetIfNeeded() {
-        if (messages.value.isNotEmpty()) return
-        val lang = container.settingsState.value.appLanguage
-        val greeting = if (lang?.startsWith("en") == true)
-            "Hi! I'm your Style Coach. Let's chat so I can learn how you speak — tell me about your day?"
-        else
-            "你好呀！我是你的风格教练。咱们随便聊聊，我好学习你平时怎么说话——说说你今天怎么样？"
-        viewModelScope.launch { container.repository.addChatMessage(ChatRole.ASSISTANT, greeting) }
+            // 保存用户消息
+            container.repository.addSessionMessage(sessionId, ChatRole.USER, text)
+
+            // 如果是第一条消息，自动生成标题
+            val currentTitle = sessionTitle.value
+            val title = if (currentMessages.isEmpty()) {
+                agent.generateTitle(text, container.settingsState.value.appLanguage)
+            } else {
+                currentTitle
+            }
+
+            // 获取 AI 回复
+            val reply = agent.send(text, history, container.settingsState.value.appLanguage)
+            if (reply.isNotEmpty()) {
+                container.repository.addSessionMessage(sessionId, ChatRole.ASSISTANT, reply)
+            }
+
+            // 更新会话预览
+            container.repository.updateSession(
+                sessionId, title, System.currentTimeMillis(), reply.take(50)
+            )
+        }
     }
 
     fun updateProfile() {
         viewModelScope.launch {
             try {
                 val history = messages.value.map {
-                    AIChatMessage(if (it.role == ChatRole.USER.name) AIChatMessage.ROLE_USER else AIChatMessage.ROLE_ASSISTANT, it.text)
+                    AIChatMessage(
+                        if (it.role == ChatRole.USER.name) AIChatMessage.ROLE_USER else AIChatMessage.ROLE_ASSISTANT,
+                        it.text
+                    )
                 }
-                val lang = if (container.settingsState.value.appLanguage?.startsWith("en") == true) ConversationLanguage.EN else ConversationLanguage.ZH
+                val lang = if (container.settingsState.value.appLanguage?.startsWith("en") == true)
+                    ConversationLanguage.EN else ConversationLanguage.ZH
                 val profile = agent.updateProfile(history, lang)
                 container.updateStyleProfile(profile)
             } catch (_: Exception) { }
@@ -192,7 +234,10 @@ class OnboardingViewModel(private val container: AppContainer) : ViewModel() {
 object AppVMFactory {
     fun list(container: AppContainer) = viewModelFactory { initializer { ConversationListViewModel(container) } }
     fun setup(container: AppContainer) = viewModelFactory { initializer { ConversationSetupViewModel(container) } }
-    fun coach(container: AppContainer) = viewModelFactory { initializer { StyleCoachViewModel(container) } }
+    fun sessions(container: AppContainer) = viewModelFactory { initializer { SessionListViewModel(container) } }
+    fun chat(container: AppContainer, sessionId: String) = viewModelFactory {
+        initializer { ChatViewModel(container, sessionId) }
+    }
     fun settings(container: AppContainer) = viewModelFactory { initializer { SettingsViewModel(container) } }
     fun onboarding(container: AppContainer) = viewModelFactory { initializer { OnboardingViewModel(container) } }
     fun live(container: AppContainer, conversationId: String) = viewModelFactory {

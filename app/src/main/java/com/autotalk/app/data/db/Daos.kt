@@ -43,12 +43,33 @@ interface TranscriptDao {
 
 @Dao
 interface ChatMessageDao {
-    @Query("SELECT * FROM chat_messages ORDER BY timestamp ASC")
-    fun observeAll(): Flow<List<ChatMessageEntity>>
+    @Query("SELECT * FROM chat_messages WHERE sessionId = :sessionId ORDER BY timestamp ASC")
+    fun observeForSession(sessionId: String): Flow<List<ChatMessageEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: ChatMessageEntity)
 
     @Query("DELETE FROM chat_messages")
+    suspend fun deleteAll()
+}
+
+@Dao
+interface ChatSessionDao {
+    @Query("SELECT * FROM chat_sessions ORDER BY updatedAt DESC")
+    fun observeAll(): Flow<List<ChatSessionEntity>>
+
+    @Query("SELECT * FROM chat_sessions WHERE id = :id")
+    suspend fun getById(id: String): ChatSessionEntity?
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsert(entity: ChatSessionEntity)
+
+    @Query("UPDATE chat_sessions SET title = :title, updatedAt = :updatedAt, lastMessagePreview = :lastMessagePreview WHERE id = :id")
+    suspend fun update(id: String, title: String, updatedAt: Long, lastMessagePreview: String)
+
+    @Query("DELETE FROM chat_sessions WHERE id = :id")
+    suspend fun deleteById(id: String)
+
+    @Query("DELETE FROM chat_sessions")
     suspend fun deleteAll()
 }

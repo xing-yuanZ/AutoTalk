@@ -7,12 +7,12 @@ import com.autotalk.app.data.db.AppDatabase
 import com.autotalk.app.data.prefs.SettingsSnapshot
 import com.autotalk.app.data.prefs.SettingsStore
 import com.autotalk.app.domain.StyleProfile
+import com.autotalk.app.service.AgentAssistant
 import com.autotalk.app.service.AIService
 import com.autotalk.app.service.AIServiceFactory
 import com.autotalk.app.service.ConversationEngine
 import com.autotalk.app.service.NetworkMonitor
 import com.autotalk.app.service.SpeechRecognitionService
-import com.autotalk.app.service.StyleLearningAgent
 import com.autotalk.app.service.TTSService
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,7 +35,8 @@ class AppContainer(context: Context) {
     val repository: ConversationRepository = ConversationRepository(
         conversationDao = database.conversationDao(),
         transcriptDao = database.transcriptDao(),
-        chatMessageDao = database.chatMessageDao()
+        chatMessageDao = database.chatMessageDao(),
+        chatSessionDao = database.chatSessionDao()
     )
     val settingsStore: SettingsStore = SettingsStore(appContext)
     val styleStore: StyleProfileStore = StyleProfileStore(appContext)
@@ -74,9 +75,9 @@ class AppContainer(context: Context) {
             styleProfile = _styleProfile.value
         )
 
-    /** 创建风格学习 Agent。 */
-    fun makeStyleAgent(): StyleLearningAgent =
-        StyleLearningAgent(aiService = currentAIService(), styleStore = styleStore)
+    /** 创建通用助手 Agent。 */
+    fun makeAssistant(): AgentAssistant =
+        AgentAssistant(aiService = currentAIService(), styleStore = styleStore)
 
     /** 更新风格画像（抽取后调用）。 */
     fun updateStyleProfile(profile: StyleProfile) {

@@ -39,10 +39,30 @@ data class TranscriptEntity(
     val isFinal: Boolean
 )
 
-/** 风格教练聊天消息实体。 */
-@Entity(tableName = "chat_messages")
+/** 助手聊天会话实体。 */
+@Entity(tableName = "chat_sessions")
+data class ChatSessionEntity(
+    @PrimaryKey val id: String,
+    val title: String,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val lastMessagePreview: String
+)
+
+/** 风格教练聊天消息实体（通用助手会话消息）。 */
+@Entity(
+    tableName = "chat_messages",
+    foreignKeys = [ForeignKey(
+        entity = ChatSessionEntity::class,
+        parentColumns = ["id"],
+        childColumns = ["sessionId"],
+        onDelete = ForeignKey.CASCADE
+    )],
+    indices = [Index("sessionId")]
+)
 data class ChatMessageEntity(
     @PrimaryKey val id: String,
+    val sessionId: String,
     val role: String,
     val text: String,
     val timestamp: Long

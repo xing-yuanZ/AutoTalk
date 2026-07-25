@@ -20,19 +20,21 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.autotalk.app.LocalAppContainer
+import com.autotalk.app.ui.screens.ChatScreen
 import com.autotalk.app.ui.screens.ConversationListScreen
 import com.autotalk.app.ui.screens.ConversationSetupScreen
 import com.autotalk.app.ui.screens.LiveSessionScreen
 import com.autotalk.app.ui.screens.OnboardingScreen
+import com.autotalk.app.ui.screens.SessionListScreen
 import com.autotalk.app.ui.screens.SettingsScreen
-import com.autotalk.app.ui.screens.StyleCoachScreen
 import com.autotalk.app.ui.viewmodels.AppVMFactory
+import com.autotalk.app.ui.viewmodels.ChatViewModel
 import com.autotalk.app.ui.viewmodels.ConversationListViewModel
 import com.autotalk.app.ui.viewmodels.ConversationSetupViewModel
 import com.autotalk.app.ui.viewmodels.LiveSessionViewModel
 import com.autotalk.app.ui.viewmodels.OnboardingViewModel
+import com.autotalk.app.ui.viewmodels.SessionListViewModel
 import com.autotalk.app.ui.viewmodels.SettingsViewModel
-import com.autotalk.app.ui.viewmodels.StyleCoachViewModel
 
 /** 顶层路由常量。 */
 object Routes {
@@ -40,15 +42,18 @@ object Routes {
 
     // 三个主 Tab（扁平结构，便于底栏统一控制）
     const val TAB_CONVERSATIONS = "tab_conversations"
-    const val TAB_COACH = "tab_coach"
+    const val TAB_SESSIONS = "tab_sessions"
     const val TAB_SETTINGS = "tab_settings"
 
     const val SETUP = "setup"
     const val LIVE = "live/{conversationId}"
     fun live(id: String) = "live/$id"
+
+    const val CHAT = "chat/{sessionId}"
+    fun chat(id: String) = "chat/$id"
 }
 
-private val tabRoutes = setOf(Routes.TAB_CONVERSATIONS, Routes.TAB_COACH, Routes.TAB_SETTINGS)
+private val tabRoutes = setOf(Routes.TAB_CONVERSATIONS, Routes.TAB_SESSIONS, Routes.TAB_SETTINGS)
 
 private data class TabItem(val route: String, val label: String, val icon: androidx.compose.ui.graphics.vector.ImageVector)
 
@@ -62,7 +67,7 @@ fun AppNavigation() {
 
     val tabs = listOf(
         TabItem(Routes.TAB_CONVERSATIONS, "对话", Icons.Filled.BubbleChart),
-        TabItem(Routes.TAB_COACH, "教练", Icons.Filled.Person),
+        TabItem(Routes.TAB_SESSIONS, "助手", Icons.Filled.Person),
         TabItem(Routes.TAB_SETTINGS, "设置", Icons.Filled.Settings)
     )
 
@@ -118,9 +123,24 @@ fun AppNavigation() {
                 )
             }
 
-            composable(Routes.TAB_COACH) {
-                val vm = viewModel<StyleCoachViewModel>(factory = AppVMFactory.coach(container))
-                StyleCoachScreen(vm = vm)
+            composable(Routes.TAB_SESSIONS) {
+                val vm = viewModel<SessionListViewModel>(factory = AppVMFactory.sessions(container))
+                SessionListScreen(
+                    vm = vm,
+                    onSessionClick = { sessionId -> navController.navigate(Routes.chat(sessionId)) }
+                )
+            }
+
+            composable(
+                route = Routes.CHAT,
+                arguments = listOf(navArgument("sessionId") { type = NavType.StringType })
+            ) { entry ->
+                val sessionId = entry.arguments?.getString("sessionId").orEmpty()
+                val vm = viewModel<ChatViewModel>(factory = AppVMFactory.chat(container, sessionId))
+                ChatScreen(
+                    vm = vm,
+                    onBack = { navController.popBackStack() }
+                )
             }
 
             composable(Routes.TAB_SETTINGS) {

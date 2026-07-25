@@ -12,7 +12,7 @@ object PromptTemplates {
             "- ${p.name}（${p.role}）${if (p.notes.isEmpty()) "" else "；备注：${p.notes}"}"
         }
         return when (conversation.language) {
-            ConversationLanguage.ZH -> """
+            ConversationLanguage.ZH, ConversationLanguage.YUE -> """
             你是一位“实时对话教练”，正在帮助用户应对一场真实对话。你的任务：根据对方刚说的话，快速给出用户可以**直接说出口**的回复候选。
 
             【对话背景】
@@ -61,13 +61,13 @@ object PromptTemplates {
 
     fun suggestionUser(recentTranscripts: String, language: ConversationLanguage): String =
         when (language) {
-            ConversationLanguage.ZH -> "对方刚刚说：\n\"$recentTranscripts\"\n请给出用户可以用来回应的候选，严格按 JSON 输出。"
+            ConversationLanguage.ZH, ConversationLanguage.YUE -> "对方刚刚说：\n\"$recentTranscripts\"\n请给出用户可以用来回应的候选，严格按 JSON 输出。"
             ConversationLanguage.EN -> "The other person just said:\n\"$recentTranscripts\"\nGive candidate replies for the user. Output strict JSON only."
         }
 
     fun extractStyleSystem(language: ConversationLanguage): String =
         when (language) {
-            ConversationLanguage.ZH -> """
+            ConversationLanguage.ZH, ConversationLanguage.YUE -> """
             你是一位语言风格分析专家。根据提供的用户聊天记录，分析用户日常说话的风格，并输出结构化 JSON。
             字段：formality(0~1)、averageSentenceLength(字数)、toneDescription(一句话)、catchphrases(数组,最多8)、responseStrategies(数组,最多5)、summary(2~3句)。
             严格只输出 JSON：

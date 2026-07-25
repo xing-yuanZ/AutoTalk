@@ -27,6 +27,12 @@ import com.autotalk.app.ui.screens.OnboardingScreen
 import com.autotalk.app.ui.screens.SettingsScreen
 import com.autotalk.app.ui.screens.StyleCoachScreen
 import com.autotalk.app.ui.viewmodels.AppVMFactory
+import com.autotalk.app.ui.viewmodels.ConversationListViewModel
+import com.autotalk.app.ui.viewmodels.ConversationSetupViewModel
+import com.autotalk.app.ui.viewmodels.LiveSessionViewModel
+import com.autotalk.app.ui.viewmodels.OnboardingViewModel
+import com.autotalk.app.ui.viewmodels.SettingsViewModel
+import com.autotalk.app.ui.viewmodels.StyleCoachViewModel
 
 /** 顶层路由常量。 */
 object Routes {
@@ -92,7 +98,7 @@ fun AppNavigation() {
             modifier = androidx.compose.ui.Modifier.padding(padding)
         ) {
             composable(Routes.ONBOARDING) {
-                val vm = viewModel(factory = AppVMFactory.onboarding(container))
+                val vm = viewModel<OnboardingViewModel>(factory = AppVMFactory.onboarding(container))
                 OnboardingScreen(
                     vm = vm,
                     onDone = {
@@ -104,7 +110,7 @@ fun AppNavigation() {
             }
 
             composable(Routes.TAB_CONVERSATIONS) {
-                val vm = viewModel(factory = AppVMFactory.list(container))
+                val vm = viewModel<ConversationListViewModel>(factory = AppVMFactory.list(container))
                 ConversationListScreen(
                     vm = vm,
                     onNew = { navController.navigate(Routes.SETUP) },
@@ -113,17 +119,17 @@ fun AppNavigation() {
             }
 
             composable(Routes.TAB_COACH) {
-                val vm = viewModel(factory = AppVMFactory.coach(container))
+                val vm = viewModel<StyleCoachViewModel>(factory = AppVMFactory.coach(container))
                 StyleCoachScreen(vm = vm)
             }
 
             composable(Routes.TAB_SETTINGS) {
-                val vm = viewModel(factory = AppVMFactory.settings(container))
+                val vm = viewModel<SettingsViewModel>(factory = AppVMFactory.settings(container))
                 SettingsScreen(vm = vm)
             }
 
             composable(Routes.SETUP) {
-                val vm = viewModel(factory = AppVMFactory.setup(container))
+                val vm = viewModel<ConversationSetupViewModel>(factory = AppVMFactory.setup(container))
                 ConversationSetupScreen(
                     vm = vm,
                     onBack = { navController.popBackStack() },
@@ -140,7 +146,7 @@ fun AppNavigation() {
                 arguments = listOf(navArgument("conversationId") { type = NavType.StringType })
             ) { entry ->
                 val conversationId = entry.arguments?.getString("conversationId").orEmpty()
-                val vm = viewModel(factory = AppVMFactory.live(container, conversationId))
+                val vm = viewModel<LiveSessionViewModel>(factory = AppVMFactory.live(container, conversationId))
                 LiveSessionScreen(
                     vm = vm,
                     onBack = { navController.popBackStack() }

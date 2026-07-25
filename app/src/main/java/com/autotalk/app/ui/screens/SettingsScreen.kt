@@ -15,7 +15,10 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +43,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.autotalk.app.domain.AIBackend
 import com.autotalk.app.domain.ASRBackend
+import com.autotalk.app.domain.ModelPreset
 import com.autotalk.app.domain.RecognitionMode
 import com.autotalk.app.ui.viewmodels.SettingsViewModel
 
@@ -100,20 +104,76 @@ fun SettingsScreen(vm: SettingsViewModel) {
 
             // 云端配置
             SectionCard(title = "云端 API 配置") {
-                OutlinedTextField(
-                    value = settings.cloudBaseURL,
-                    onValueChange = vm::setCloudBaseURL,
-                    label = { Text("Base URL") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = settings.cloudModel,
-                    onValueChange = vm::setCloudModel,
-                    label = { Text("模型名") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
+                Text("模型预设", style = MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.height(8.dp))
+                // 模型预设下拉选择
+                var presetExpanded by remember { mutableStateOf(false) }
+                val currentPreset = settings.currentPreset
+                ExposedDropdownMenuBox(
+                    expanded = presetExpanded,
+                    onExpandedChange = { presetExpanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = currentPreset.displayName,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("预设模型") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = presetExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = presetExpanded,
+                        onDismissRequest = { presetExpanded = false }
+                    ) {
+                        ModelPreset.PRESETS.forEach { p ->
+                            DropdownMenuItem(
+                                text = { Text(p.displayName) },
+                                onClick = {
+                                    vm.setSelectedPreset(p.id)
+                                    presetExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+
+                if (currentPreset.isCustom) {
+                    Spacer(Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = settings.cloudBaseURL,
+                        onValueChange = vm::setCloudBaseURL,
+                        label = { Text("Base URL") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    OutlinedTextField(
+                        value = settings.cloudModel,
+                        onValueChange = vm::setCloudModel,
+                        label = { Text("模型名") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    Spacer(Modifier.height(8.dp))
+                    Text("Base URL：${settings.cloudBaseURL}",
+                         style = MaterialTheme.typography.bodySmall,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("模型名：${settings.cloudModel}",
+                         style = MaterialTheme.typography.bodySmall,
+                         color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (currentPreset.supportsVision) {
+                        Text("✅ 支持图片输入",
+                             style = MaterialTheme.typography.labelSmall,
+                             color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    if (currentPreset.needsThinkTagStripping) {
+                        Text("⚠️ 推理模型响应较慢（10~30秒）",
+                             style = MaterialTheme.typography.labelSmall,
+                             color = MaterialTheme.colorScheme.error)
+                    }
+                }
+
+                Spacer(Modifier.height(8.dp))
                 OutlinedTextField(
                     value = settings.cloudAPIKey,
                     onValueChange = vm::setCloudAPIKey,

@@ -12,7 +12,8 @@ import java.net.URL
 class CloudLLMService(
     private val baseURL: String,
     private val model: String,
-    private val apiKey: String
+    private val apiKey: String,
+    private val stripThinkTag: Boolean = false
 ) : AIService {
 
     override val displayName: String = "云端 API"
@@ -27,7 +28,8 @@ class CloudLLMService(
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Authorization", "Bearer $apiKey")
             connectTimeout = 60_000
-            readTimeout = 60_000
+            // R1 推理慢，读超时放宽到 120s。
+            readTimeout = if (stripThinkTag) 120_000 else 60_000
             doOutput = true
         }
         try {
@@ -46,15 +48,23 @@ class CloudLLMService(
             if (code !in 200..299) throw AIError.BadResponse("HTTP $code：${text.take(500)}")
 
             val resp = JSONObject(text)
-            val content = resp.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")?.optString("content")
+            val rawContent = resp.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")?.optString("content")
                 ?: throw AIError.BadResponse("响应缺少 message.content")
-            content
+            if (stripThinkTag) stripThinkTags(rawContent) else rawContent
         } catch (e: AIError) {
             throw e
         } catch (e: Exception) {
             throw AIError.Network(e.message ?: "未知网络错误")
         } finally {
             conn.disconnect()
+        }
+    }
+
+    companion object {
+        /** 剥离 R1 等推理模型的 <think>...</think> 思维链标签。 */
+        fun stripThinkTags(text: String): String {
+            val regex = Regex("<think>[\\s\\S]*?(</think>|$)")
+            return text.replace(regex, "").trim()
         }
     }
 }

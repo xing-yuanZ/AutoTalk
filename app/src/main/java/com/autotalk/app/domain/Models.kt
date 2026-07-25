@@ -92,3 +92,56 @@ data class AIChatMessage(val role: String, val content: String) {
         const val ROLE_ASSISTANT = "assistant"
     }
 }
+
+/** 云端模型预设。一键切换时同时改 baseURL / 模型名 / API Key。 */
+data class ModelPreset(
+    val id: String,
+    val displayName: String,
+    val provider: String,
+    val baseURL: String,
+    val model: String,
+    val supportsVision: Boolean,
+    val supportsTools: Boolean,
+    val isCustom: Boolean
+) {
+    /** R1 等推理模型输出含 <think>...</think>，需剥离后返回。 */
+    val needsThinkTagStripping: Boolean
+        get() = model.contains("reasoner") || model.contains("r1")
+
+    companion object {
+        val CUSTOM = ModelPreset(
+            id = "custom", displayName = "自定义", provider = "custom",
+            baseURL = "", model = "",
+            supportsVision = false, supportsTools = false, isCustom = true
+        )
+
+        /** 内置预设清单（与 iOS 端一致）。 */
+        val PRESETS: List<ModelPreset> = listOf(
+            ModelPreset("deepseek_v3", "DeepSeek V3", "deepseek",
+                "https://api.deepseek.com/v1", "deepseek-chat",
+                supportsVision = false, supportsTools = false, isCustom = false),
+            ModelPreset("deepseek_r1", "DeepSeek R1", "deepseek",
+                "https://api.deepseek.com/v1", "deepseek-reasoner",
+                supportsVision = false, supportsTools = false, isCustom = false),
+            ModelPreset("gpt_4o", "GPT-4o", "openai",
+                "https://api.openai.com/v1", "gpt-4o",
+                supportsVision = true, supportsTools = true, isCustom = false),
+            ModelPreset("gpt_4o_mini", "GPT-4o mini", "openai",
+                "https://api.openai.com/v1", "gpt-4o-mini",
+                supportsVision = true, supportsTools = true, isCustom = false),
+            ModelPreset("qwen_plus", "通义千问 Plus", "qwen",
+                "https://dashscope.aliyuncs.com/compatible-mode/v1", "qwen-plus",
+                supportsVision = false, supportsTools = true, isCustom = false),
+            ModelPreset("glm_4_flash", "智谱 GLM-4 Flash", "glm",
+                "https://open.bigmodel.cn/api/paas/v4", "glm-4-flash",
+                supportsVision = false, supportsTools = true, isCustom = false),
+            ModelPreset("moonshot_8k", "月之暗面 8K", "moonshot",
+                "https://api.moonshot.cn/v1", "moonshot-v1-8k",
+                supportsVision = false, supportsTools = true, isCustom = false),
+            CUSTOM
+        )
+
+        /** 按 id 查预设，找不到返回 CUSTOM。 */
+        fun find(id: String): ModelPreset = PRESETS.firstOrNull { it.id == id } ?: CUSTOM
+    }
+}

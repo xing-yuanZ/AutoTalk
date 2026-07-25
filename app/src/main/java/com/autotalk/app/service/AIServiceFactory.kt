@@ -30,6 +30,7 @@ class AIServiceFactory {
         CloudLLMService(
             baseURL = snapshot.cloudBaseURL,
             model = snapshot.cloudModel,
-            apiKey = snapshot.cloudAPIKey
+            apiKey = snapshot.cloudAPIKey,
+            stripThinkTag = snapshot.currentPreset.needsThinkTagStripping
         )
 }

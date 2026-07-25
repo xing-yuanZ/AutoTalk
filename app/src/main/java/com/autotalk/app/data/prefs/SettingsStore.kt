@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.autotalk.app.domain.AIBackend
 import com.autotalk.app.domain.ASRBackend
+import com.autotalk.app.domain.ModelPreset
 import com.autotalk.app.domain.RecognitionMode
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -29,7 +30,11 @@ class SettingsStore(private val context: Context) {
         val DOUBAO_APP_ID = stringPreferencesKey("doubaoAppID")
         val DOUBAO_ACCESS_TOKEN = stringPreferencesKey("doubaoAccessToken")
         val DOUBAO_CLUSTER = stringPreferencesKey("doubaoCluster")
+        val SELECTED_PRESET = stringPreferencesKey("selectedPresetId")
     }
+
+    /** 按 provider 分组保存 API Key 的 key 前缀。 */
+    private fun providerKeyKey(provider: String) = stringPreferencesKey("providerKey_$provider")
 
     val hasCompletedOnboarding: Flow<Boolean> =
         context.dataStore.data.map { it[Keys.ONBOARDING] ?: false }
@@ -67,6 +72,9 @@ class SettingsStore(private val context: Context) {
     val doubaoCluster: Flow<String> =
         context.dataStore.data.map { it[Keys.DOUBAO_CLUSTER] ?: "volcengine_streaming_common" }
 
+    val selectedPresetId: Flow<String> =
+        context.dataStore.data.map { it[Keys.SELECTED_PRESET] ?: "deepseek_v3" }
+
     suspend fun setOnboardingDone(value: Boolean) = context.dataStore.edit { it[Keys.ONBOARDING] = value }
     suspend fun setBackend(value: AIBackend) = context.dataStore.edit { it[Keys.BACKEND] = value.name }
     suspend fun setAsrBackend(value: ASRBackend) = context.dataStore.edit { it[Keys.ASR_BACKEND] = value.name }
@@ -78,6 +86,28 @@ class SettingsStore(private val context: Context) {
     suspend fun setCloudBaseURL(value: String) = context.dataStore.edit { it[Keys.CLOUD_BASE_URL] = value }
     suspend fun setCloudModel(value: String) = context.dataStore.edit { it[Keys.CLOUD_MODEL] = value }
     suspend fun setCloudAPIKey(value: String) = context.dataStore.edit { it[Keys.CLOUD_API_KEY] = value }
+
+    /**
+     * 切换模型预设：非自定义时同步写入预设的 baseURL/model，并把对应 provider 已存的 API Key
+     * 带回到 cloudAPIKey；同时把当前 cloudAPIKey 保存到旧 provider 名下，便于切回时自动带出。
+     */
+    suspend fun setSelectedPreset(newPresetId: String, currentSnapshot: SettingsSnapshot) {
+        // 1. 先把当前 API Key 保存到旧 provider 名下。
+        val oldPreset = ModelPreset.find(currentSnapshot.selectedPresetId)
+        context.dataStore.edit { it[providerKeyKey(oldPreset.provider)] = currentSnapshot.cloudAPIKey }
+
+        // 2. 切到新预设。
+        val newPreset = ModelPreset.find(newPresetId)
+        context.dataStore.edit { prefs ->
+            prefs[Keys.SELECTED_PRESET] = newPresetId
+            if (!newPreset.isCustom) {
+                prefs[Keys.CLOUD_BASE_URL] = newPreset.baseURL
+                prefs[Keys.CLOUD_MODEL] = newPreset.model
+            }
+            // 带出新 provider 的 Key（没存过则为空）。
+            prefs[Keys.CLOUD_API_KEY] = prefs[providerKeyKey(newPreset.provider)] ?: ""
+        }
+    }
     suspend fun setDoubaoAppID(value: String) = context.dataStore.edit { it[Keys.DOUBAO_APP_ID] = value }
     suspend fun setDoubaoAccessToken(value: String) = context.dataStore.edit { it[Keys.DOUBAO_ACCESS_TOKEN] = value }
     suspend fun setDoubaoCluster(value: String) = context.dataStore.edit { it[Keys.DOUBAO_CLUSTER] = value }
@@ -96,7 +126,8 @@ class SettingsStore(private val context: Context) {
             cloudAPIKey = prefs[Keys.CLOUD_API_KEY] ?: "",
             doubaoAppID = prefs[Keys.DOUBAO_APP_ID] ?: "",
             doubaoAccessToken = prefs[Keys.DOUBAO_ACCESS_TOKEN] ?: "",
-            doubaoCluster = prefs[Keys.DOUBAO_CLUSTER] ?: "volcengine_streaming_common"
+            doubaoCluster = prefs[Keys.DOUBAO_CLUSTER] ?: "volcengine_streaming_common",
+            selectedPresetId = prefs[Keys.SELECTED_PRESET] ?: "deepseek_v3"
         )
     }
 }
@@ -114,8 +145,12 @@ data class SettingsSnapshot(
     val cloudAPIKey: String = "",
     val doubaoAppID: String = "",
     val doubaoAccessToken: String = "",
-    val doubaoCluster: String = "volcengine_streaming_common"
+    val doubaoCluster: String = "volcengine_streaming_common",
+    val selectedPresetId: String = "deepseek_v3"
 ) {
     /** 当前设备是否支持端侧模型（Android 端 Gemini Nano 接入门槛高，默认返回 false，回退云端）。 */
     val supportsOnDevice: Boolean get() = false
+
+    /** 当前选中的模型预设对象。 */
+    val currentPreset: ModelPreset get() = ModelPreset.find(selectedPresetId)
 }

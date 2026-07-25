@@ -157,6 +157,9 @@ class SettingsViewModel(private val container: AppContainer) : ViewModel() {
     fun setCloudBaseURL(v: String) = viewModelScope.launch { container.settingsStore.setCloudBaseURL(v) }
     fun setCloudModel(v: String) = viewModelScope.launch { container.settingsStore.setCloudModel(v) }
     fun setCloudAPIKey(v: String) = viewModelScope.launch { container.settingsStore.setCloudAPIKey(v) }
+    fun setSelectedPreset(presetId: String) = viewModelScope.launch {
+        container.settingsStore.setSelectedPreset(presetId, settings.value)
+    }
     fun setDoubaoAppID(v: String) = viewModelScope.launch { container.settingsStore.setDoubaoAppID(v) }
     fun setDoubaoAccessToken(v: String) = viewModelScope.launch { container.settingsStore.setDoubaoAccessToken(v) }
     fun setDoubaoCluster(v: String) = viewModelScope.launch { container.settingsStore.setDoubaoCluster(v) }

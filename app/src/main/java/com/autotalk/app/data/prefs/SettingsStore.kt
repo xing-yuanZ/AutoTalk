@@ -58,7 +58,7 @@ class SettingsStore(private val context: Context) {
         context.dataStore.data.map { it[Keys.CLOUD_BASE_URL] ?: "https://api.deepseek.com/v1" }
 
     val cloudModel: Flow<String> =
-        context.dataStore.data.map { it[Keys.CLOUD_MODEL] ?: "deepseek-chat" }
+        context.dataStore.data.map { it[Keys.CLOUD_MODEL] ?: "deepseek-reasoner" }
 
     val cloudAPIKey: Flow<String> =
         context.dataStore.data.map { it[Keys.CLOUD_API_KEY] ?: "" }
@@ -73,7 +73,7 @@ class SettingsStore(private val context: Context) {
         context.dataStore.data.map { it[Keys.DOUBAO_CLUSTER] ?: "volcengine_streaming_common" }
 
     val selectedPresetId: Flow<String> =
-        context.dataStore.data.map { it[Keys.SELECTED_PRESET] ?: "deepseek_v3" }
+        context.dataStore.data.map { it[Keys.SELECTED_PRESET] ?: "deepseek_r1" }
 
     suspend fun setOnboardingDone(value: Boolean) = context.dataStore.edit { it[Keys.ONBOARDING] = value }
     suspend fun setBackend(value: AIBackend) = context.dataStore.edit { it[Keys.BACKEND] = value.name }
@@ -122,12 +122,12 @@ class SettingsStore(private val context: Context) {
             autoSpeakSuggestions = prefs[Keys.AUTO_SPEAK] ?: false,
             appLanguage = prefs[Keys.APP_LANGUAGE],
             cloudBaseURL = prefs[Keys.CLOUD_BASE_URL] ?: "https://api.deepseek.com/v1",
-            cloudModel = prefs[Keys.CLOUD_MODEL] ?: "deepseek-chat",
+            cloudModel = prefs[Keys.CLOUD_MODEL] ?: "deepseek-reasoner",
             cloudAPIKey = prefs[Keys.CLOUD_API_KEY] ?: "",
             doubaoAppID = prefs[Keys.DOUBAO_APP_ID] ?: "",
             doubaoAccessToken = prefs[Keys.DOUBAO_ACCESS_TOKEN] ?: "",
             doubaoCluster = prefs[Keys.DOUBAO_CLUSTER] ?: "volcengine_streaming_common",
-            selectedPresetId = prefs[Keys.SELECTED_PRESET] ?: "deepseek_v3"
+            selectedPresetId = prefs[Keys.SELECTED_PRESET] ?: "deepseek_r1"
         )
     }
 }
@@ -141,12 +141,12 @@ data class SettingsSnapshot(
     val autoSpeakSuggestions: Boolean = false,
     val appLanguage: String? = null,
     val cloudBaseURL: String = "https://api.deepseek.com/v1",
-    val cloudModel: String = "deepseek-chat",
+    val cloudModel: String = "deepseek-reasoner",
     val cloudAPIKey: String = "",
     val doubaoAppID: String = "",
     val doubaoAccessToken: String = "",
     val doubaoCluster: String = "volcengine_streaming_common",
-    val selectedPresetId: String = "deepseek_v3"
+    val selectedPresetId: String = "deepseek_r1"
 ) {
     /** 当前设备是否支持端侧模型（Android 端 Gemini Nano 接入门槛高，默认返回 false，回退云端）。 */
     val supportsOnDevice: Boolean get() = false

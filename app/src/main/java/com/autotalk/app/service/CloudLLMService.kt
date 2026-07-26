@@ -27,8 +27,8 @@ class CloudLLMService(
             requestMethod = "POST"
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Authorization", "Bearer $apiKey")
-            connectTimeout = 60_000
-            // R1 推理慢，读超时放宽到 120s。
+            // 连接超时 15s，让用户尽快知道网络问题；读取超时给 R1 留 120s。
+            connectTimeout = 15_000
             readTimeout = if (stripThinkTag) 120_000 else 60_000
             doOutput = true
         }

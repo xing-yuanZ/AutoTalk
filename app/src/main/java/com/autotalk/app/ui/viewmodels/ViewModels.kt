@@ -12,8 +12,10 @@ import com.autotalk.app.domain.ChatRole
 import com.autotalk.app.domain.ConversationLanguage
 import com.autotalk.app.domain.Speaker
 import com.autotalk.app.domain.Suggestion
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -132,40 +134,58 @@ class ChatViewModel(
             .stateIn(viewModelScope, SharingStarted.Eagerly, "助手")
 
     val isThinking: StateFlow<Boolean> = agent.isThinking
-    val error: StateFlow<String?> = agent.error
+
+    private val _error = MutableStateFlow<String?>(null)
+    val error: StateFlow<String?> = _error.asStateFlow()
+
+    fun clearError() { _error.value = null }
 
     fun send(text: String) {
         if (text.isBlank()) return
         viewModelScope.launch {
-            val currentMessages = messages.value
-            val history = currentMessages.map {
-                AIChatMessage(
-                    if (it.role == ChatRole.USER.name) AIChatMessage.ROLE_USER else AIChatMessage.ROLE_ASSISTANT,
-                    it.text
+            _error.value = null
+            try {
+                // 前置检查：必须有 API Key
+                val settings = container.settingsState.value
+                if (settings.cloudAPIKey.isBlank()) {
+                    _error.value = "未配置云端 API Key，请先在设置中填写。"
+                    return@launch
+                }
+
+                val currentMessages = messages.value
+                val history = currentMessages.map {
+                    AIChatMessage(
+                        if (it.role == ChatRole.USER.name) AIChatMessage.ROLE_USER else AIChatMessage.ROLE_ASSISTANT,
+                        it.text
+                    )
+                }
+
+                // 保存用户消息
+                container.repository.addSessionMessage(sessionId, ChatRole.USER, text)
+
+                // 如果是第一条消息，自动生成标题
+                val currentTitle = sessionTitle.value
+                val title = if (currentMessages.isEmpty()) {
+                    agent.generateTitle(text, settings.appLanguage)
+                } else {
+                    currentTitle
+                }
+
+                // 获取 AI 回复
+                val reply = agent.send(text, history, settings.appLanguage)
+                if (reply.isNotEmpty()) {
+                    container.repository.addSessionMessage(sessionId, ChatRole.ASSISTANT, reply)
+                } else if (agent.error.value != null) {
+                    _error.value = agent.error.value
+                }
+
+                // 更新会话预览
+                container.repository.updateSession(
+                    sessionId, title, System.currentTimeMillis(), reply.take(50)
                 )
+            } catch (e: Exception) {
+                _error.value = "发送失败：${e.message ?: "未知错误"}"
             }
-
-            // 保存用户消息
-            container.repository.addSessionMessage(sessionId, ChatRole.USER, text)
-
-            // 如果是第一条消息，自动生成标题
-            val currentTitle = sessionTitle.value
-            val title = if (currentMessages.isEmpty()) {
-                agent.generateTitle(text, container.settingsState.value.appLanguage)
-            } else {
-                currentTitle
-            }
-
-            // 获取 AI 回复
-            val reply = agent.send(text, history, container.settingsState.value.appLanguage)
-            if (reply.isNotEmpty()) {
-                container.repository.addSessionMessage(sessionId, ChatRole.ASSISTANT, reply)
-            }
-
-            // 更新会话预览
-            container.repository.updateSession(
-                sessionId, title, System.currentTimeMillis(), reply.take(50)
-            )
         }
     }
 

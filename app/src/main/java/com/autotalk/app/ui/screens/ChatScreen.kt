@@ -88,10 +88,25 @@ fun ChatScreen(
             // 消息列表
             LazyColumn(
                 modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp, Alignment.Bottom),
+                reverseLayout = true
             ) {
+                if (error != null) {
+                    item(key = "error") {
+                        Text(error!!, style = MaterialTheme.typography.bodySmall,
+                             color = MaterialTheme.colorScheme.error,
+                             modifier = Modifier.padding(vertical = 8.dp))
+                    }
+                }
+                if (isThinking) {
+                    item(key = "thinking") {
+                        Text("思考中…", style = MaterialTheme.typography.bodySmall,
+                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                             modifier = Modifier.padding(vertical = 8.dp))
+                    }
+                }
                 if (messages.isEmpty()) {
-                    item {
+                    item(key = "empty") {
                         Text("发送一条消息开始对话",
                              style = MaterialTheme.typography.bodySmall,
                              color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -100,14 +115,6 @@ fun ChatScreen(
                 }
                 items(messages, key = { it.id }) { msg ->
                     MessageBubble(msg)
-                }
-                if (isThinking) {
-                    item { Text("思考中…", style = MaterialTheme.typography.bodySmall,
-                         color = MaterialTheme.colorScheme.onSurfaceVariant) }
-                }
-                if (error != null) {
-                    item { Text(error!!, style = MaterialTheme.typography.bodySmall,
-                         color = MaterialTheme.colorScheme.error) }
                 }
             }
 
@@ -126,9 +133,10 @@ fun ChatScreen(
                 Spacer(Modifier.width(8.dp))
                 IconButton(
                     onClick = {
-                        if (input.isNotBlank()) {
-                            scope.launch { vm.send(input) }
+                        val text = input.trim()
+                        if (text.isNotEmpty()) {
                             input = ""
+                            scope.launch { vm.send(text) }
                         }
                     },
                     enabled = input.isNotBlank() && !isThinking

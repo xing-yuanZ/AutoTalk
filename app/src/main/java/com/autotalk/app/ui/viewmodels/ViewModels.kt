@@ -145,6 +145,11 @@ class ChatViewModel(
         viewModelScope.launch {
             _error.value = null
             try {
+                val currentMessages = messages.value
+
+                // ✅ 先保存用户消息到数据库（确保消息不会消失）
+                container.repository.addSessionMessage(sessionId, ChatRole.USER, text)
+
                 // 前置检查：必须有 API Key
                 val settings = container.settingsState.value
                 if (settings.cloudAPIKey.isBlank()) {
@@ -152,16 +157,13 @@ class ChatViewModel(
                     return@launch
                 }
 
-                val currentMessages = messages.value
+                // agent.send() 自己会把当前消息追加到历史，这里只传之前的消息
                 val history = currentMessages.map {
                     AIChatMessage(
                         if (it.role == ChatRole.USER.name) AIChatMessage.ROLE_USER else AIChatMessage.ROLE_ASSISTANT,
                         it.text
                     )
                 }
-
-                // 保存用户消息
-                container.repository.addSessionMessage(sessionId, ChatRole.USER, text)
 
                 // 如果是第一条消息，自动生成标题
                 val currentTitle = sessionTitle.value
@@ -176,6 +178,7 @@ class ChatViewModel(
                 if (reply.isNotEmpty()) {
                     container.repository.addSessionMessage(sessionId, ChatRole.ASSISTANT, reply)
                 } else if (agent.error.value != null) {
+                    // 同时显示 AI 错误
                     _error.value = agent.error.value
                 }
 
